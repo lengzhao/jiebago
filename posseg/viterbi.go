@@ -1,8 +1,9 @@
 package posseg
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 )
 
 type probState struct {
@@ -12,23 +13,6 @@ type probState struct {
 
 func (ps probState) String() string {
 	return fmt.Sprintf("(%v: %f)", ps.state, ps.prob)
-}
-
-type probStates []probState
-
-func (pss probStates) Len() int {
-	return len(pss)
-}
-
-func (pss probStates) Less(i, j int) bool {
-	if pss[i].prob == pss[j].prob {
-		return pss[i].state < pss[j].state
-	}
-	return pss[i].prob < pss[j].prob
-}
-
-func (pss probStates) Swap(i, j int) {
-	pss[i], pss[j] = pss[j], pss[i]
 }
 
 func viterbi(obs []rune) []tag {
@@ -42,28 +26,33 @@ func viterbi(obs []rune) []tag {
 		V[0][y] = probEmit[y].get(obs[0]) + probStart[y]
 		memPath[0][y] = 0
 	}
+
 	for t := 1; t < obsLength; t++ {
-		var prevStates []uint16
+		// Pre-allocate with estimated capacity
+		prevStates := make([]uint16, 0, len(memPath[t-1]))
 		for x := range memPath[t-1] {
 			if len(probTrans[x]) > 0 {
 				prevStates = append(prevStates, x)
 			}
 		}
-		//use Go's map to implement Python's Set()
-		prevStatesExpectNext := make(map[uint16]int)
+
+		// Use map[string]struct{} as set (zero memory overhead)
+		prevStatesExpectNext := make(map[uint16]struct{}, len(prevStates)*2)
 		for _, x := range prevStates {
 			for y := range probTrans[x] {
-				prevStatesExpectNext[y] = 1
+				prevStatesExpectNext[y] = struct{}{}
 			}
 		}
+
 		tmpObsStates := charStateTab.get(obs[t])
 
-		var obsStates []uint16
-		for index := range tmpObsStates {
-			if _, ok := prevStatesExpectNext[tmpObsStates[index]]; ok {
-				obsStates = append(obsStates, tmpObsStates[index])
+		obsStates := make([]uint16, 0, len(tmpObsStates))
+		for _, state := range tmpObsStates {
+			if _, ok := prevStatesExpectNext[state]; ok {
+				obsStates = append(obsStates, state)
 			}
 		}
+
 		if len(obsStates) == 0 {
 			for key := range prevStatesExpectNext {
 				obsStates = append(obsStates, key)
@@ -72,14 +61,17 @@ func viterbi(obs []rune) []tag {
 		if len(obsStates) == 0 {
 			obsStates = probTransKeys
 		}
+
 		memPath[t] = make(map[uint16]uint16)
 		V[t] = make(map[uint16]float64)
+
 		for _, y := range obsStates {
-			var max, ps probState
+			var max probState
 			for i, y0 := range prevStates {
-				ps = probState{
+				ps := probState{
 					prob:  V[t-1][y0] + probTrans[y0].Get(y) + probEmit[y].get(obs[t]),
-					state: y0}
+					state: y0,
+				}
 				if i == 0 || ps.prob > max.prob || (ps.prob == max.prob && ps.state > max.state) {
 					max = ps
 				}
@@ -88,16 +80,23 @@ func viterbi(obs []rune) []tag {
 			memPath[t][y] = max.state
 		}
 	}
-	last := make(probStates, 0)
-	length := len(memPath)
-	vlength := len(V)
-	for y := range memPath[length-1] {
-		ps := probState{prob: V[vlength-1][y], state: y}
-		last = append(last, ps)
+
+	// Build last slice with pre-allocated capacity
+	last := make([]probState, 0, len(memPath[obsLength-1]))
+	for y := range memPath[obsLength-1] {
+		last = append(last, probState{prob: V[obsLength-1][y], state: y})
 	}
-	sort.Sort(sort.Reverse(last))
+
+	// Use slices.SortFunc instead of sort.Interface
+	slices.SortFunc(last, func(a, b probState) int {
+		if a.prob == b.prob {
+			return cmp.Compare(b.state, a.state) // Reverse state order
+		}
+		return cmp.Compare(b.prob, a.prob) // Descending prob
+	})
+
 	state := last[0].state
-	route := make([]tag, len(obs))
+	route := make([]tag, obsLength)
 
 	for i := obsLength - 1; i >= 0; i-- {
 		route[i] = tag(state)

@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/wangbin/jiebago/dictionary"
-	"github.com/wangbin/jiebago/finalseg"
-	"github.com/wangbin/jiebago/util"
+	"github.com/lengzhao/jiebago/dictionary"
+	"github.com/lengzhao/jiebago/finalseg"
+	"github.com/lengzhao/jiebago/util"
 )
 
 var (
@@ -46,7 +46,7 @@ cutted into several short words.
 This method is useful when a word in the sentence is not cutted out correctly.
 
 If a word should not be further cutted, for example word "石墨烯" should not be
-cutted into "石墨" and "烯", SuggestFrequency("石墨烯") will return the maximu
+cutted into "石墨" and "烯", SuggestFrequency("石墨烯") will return the maximum
 frequency for this word.
 
 If a word should be further cutted, for example word "今天天气" should be
@@ -168,7 +168,7 @@ func (seg *Segmenter) calc(runes []rune) map[int]route {
 type cutFunc func(sentence string) <-chan string
 
 func (seg *Segmenter) cutDAG(sentence string) <-chan string {
-	result := make(chan string)
+	result := make(chan string, 32)
 	go func() {
 		runes := []rune(sentence)
 		routes := seg.calc(runes)
@@ -225,7 +225,7 @@ func (seg *Segmenter) cutDAG(sentence string) <-chan string {
 }
 
 func (seg *Segmenter) cutDAGNoHMM(sentence string) <-chan string {
-	result := make(chan string)
+	result := make(chan string, 32)
 
 	go func() {
 		runes := []rune(sentence)
@@ -262,7 +262,7 @@ func (seg *Segmenter) cutDAGNoHMM(sentence string) <-chan string {
 // Accurate mode attempts to cut the sentence into the most accurate
 // segmentations, which is suitable for text analysis.
 func (seg *Segmenter) Cut(sentence string, hmm bool) <-chan string {
-	result := make(chan string)
+	result := make(chan string, 32)
 	var cut cutFunc
 	if hmm {
 		cut = seg.cutDAG
@@ -297,7 +297,7 @@ func (seg *Segmenter) Cut(sentence string, hmm bool) <-chan string {
 }
 
 func (seg *Segmenter) cutAll(sentence string) <-chan string {
-	result := make(chan string)
+	result := make(chan string, 32)
 	go func() {
 		runes := []rune(sentence)
 		dag := seg.dag(runes)
@@ -330,7 +330,7 @@ func (seg *Segmenter) cutAll(sentence string) <-chan string {
 // Full mode gets all the possible words from the sentence.
 // Fast but not accurate.
 func (seg *Segmenter) CutAll(sentence string) <-chan string {
-	result := make(chan string)
+	result := make(chan string, 32)
 	go func() {
 		for _, block := range util.RegexpSplit(reHanCutAll, sentence, -1) {
 			if len(block) == 0 {
@@ -356,7 +356,7 @@ func (seg *Segmenter) CutAll(sentence string) <-chan string {
 // into several short words, which can raise the recall rate.
 // Suitable for search engines.
 func (seg *Segmenter) CutForSearch(sentence string, hmm bool) <-chan string {
-	result := make(chan string)
+	result := make(chan string, 32)
 	go func() {
 		for word := range seg.Cut(sentence, hmm) {
 			runes := []rune(word)

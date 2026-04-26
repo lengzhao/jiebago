@@ -1,10 +1,10 @@
 package analyse
 
 import (
-	"math"
-	"sort"
+	"cmp"
+	"slices"
 
-	"github.com/wangbin/jiebago/posseg"
+	"github.com/lengzhao/jiebago/posseg"
 )
 
 const dampingFactor = 0.85
@@ -19,55 +19,39 @@ type edge struct {
 	weight float64
 }
 
-type edges []edge
-
-func (es edges) Len() int {
-	return len(es)
-}
-
-func (es edges) Less(i, j int) bool {
-	return es[i].weight < es[j].weight
-}
-
-func (es edges) Swap(i, j int) {
-	es[i], es[j] = es[j], es[i]
-}
-
 type undirectWeightedGraph struct {
-	graph map[string]edges
-	keys  sort.StringSlice
+	graph map[string][]edge
+	keys  []string
 }
 
 func newUndirectWeightedGraph() *undirectWeightedGraph {
-	u := new(undirectWeightedGraph)
-	u.graph = make(map[string]edges)
-	u.keys = make(sort.StringSlice, 0)
-	return u
+	return &undirectWeightedGraph{
+		graph: make(map[string][]edge),
+		keys:  make([]string, 0),
+	}
 }
 
 func (u *undirectWeightedGraph) addEdge(start, end string, weight float64) {
 	if _, ok := u.graph[start]; !ok {
 		u.keys = append(u.keys, start)
-		u.graph[start] = edges{edge{start: start, end: end, weight: weight}}
+		u.graph[start] = []edge{{start: start, end: end, weight: weight}}
 	} else {
 		u.graph[start] = append(u.graph[start], edge{start: start, end: end, weight: weight})
 	}
 
 	if _, ok := u.graph[end]; !ok {
 		u.keys = append(u.keys, end)
-		u.graph[end] = edges{edge{start: end, end: start, weight: weight}}
+		u.graph[end] = []edge{{start: end, end: start, weight: weight}}
 	} else {
 		u.graph[end] = append(u.graph[end], edge{start: end, end: start, weight: weight})
 	}
 }
 
 func (u *undirectWeightedGraph) rank() Segments {
-	if !sort.IsSorted(u.keys) {
-		sort.Sort(u.keys)
-	}
+	slices.Sort(u.keys)
 
-	ws := make(map[string]float64)
-	outSum := make(map[string]float64)
+	ws := make(map[string]float64, len(u.graph))
+	outSum := make(map[string]float64, len(u.graph))
 
 	wsdef := 1.0
 	if len(u.graph) > 0 {
@@ -92,54 +76,62 @@ func (u *undirectWeightedGraph) rank() Segments {
 			ws[n] = (1 - dampingFactor) + dampingFactor*s
 		}
 	}
-	minRank := math.MaxFloat64
-	maxRank := math.SmallestNonzeroFloat64
+
+	// Find min and max using Go 1.21+ built-in functions
+	minRank := 1.0
+	maxRank := 0.0
 	for _, w := range ws {
-		if w < minRank {
-			minRank = w
-		} else if w > maxRank {
-			maxRank = w
-		}
+		minRank = min(minRank, w)
+		maxRank = max(maxRank, w)
 	}
-	result := make(Segments, 0)
+
+	result := make(Segments, 0, len(ws))
 	for n, w := range ws {
 		result = append(result, Segment{text: n, weight: (w - minRank/10.0) / (maxRank - minRank/10.0)})
 	}
-	sort.Sort(sort.Reverse(result))
+
+	// Use slices.SortFunc instead of sort.Interface
+	slices.SortFunc(result, func(a, b Segment) int {
+		return cmp.Compare(b.weight, a.weight) // Reverse order (descending)
+	})
 	return result
 }
 
 // TextRankWithPOS extracts keywords from sentence using TextRank algorithm.
 // Parameter allowPOS allows a customized pos list.
 func (t *TextRanker) TextRankWithPOS(sentence string, topK int, allowPOS []string) Segments {
-	posFilt := make(map[string]int)
+	// Use map[string]struct{} as set (zero memory overhead)
+	posFilt := make(map[string]struct{}, len(allowPOS))
 	for _, pos := range allowPOS {
-		posFilt[pos] = 1
+		posFilt[pos] = struct{}{}
 	}
+
 	g := newUndirectWeightedGraph()
 	cm := make(map[[2]string]float64)
 	span := 5
-	var pairs []posseg.Segment
+
+	// Pre-allocate slice with estimated capacity
+	pairs := make([]posseg.Segment, 0, 64)
 	for pair := range t.seg.Cut(sentence, true) {
 		pairs = append(pairs, pair)
 	}
+
 	for i := range pairs {
 		if _, ok := posFilt[pairs[i].Pos()]; ok {
-			for j := i + 1; j < i+span && j <= len(pairs); j++ {
+			for j := i + 1; j < i+span && j < len(pairs); j++ {
 				if _, ok := posFilt[pairs[j].Pos()]; !ok {
 					continue
 				}
-				if _, ok := cm[[2]string{pairs[i].Text(), pairs[j].Text()}]; !ok {
-					cm[[2]string{pairs[i].Text(), pairs[j].Text()}] = 1.0
-				} else {
-					cm[[2]string{pairs[i].Text(), pairs[j].Text()}] += 1.0
-				}
+				key := [2]string{pairs[i].Text(), pairs[j].Text()}
+				cm[key] += 1.0
 			}
 		}
 	}
+
 	for startEnd, weight := range cm {
 		g.addEdge(startEnd[0], startEnd[1], weight)
 	}
+
 	tags := g.rank()
 	if topK > 0 && len(tags) > topK {
 		tags = tags[:topK]

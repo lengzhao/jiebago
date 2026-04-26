@@ -1,10 +1,10 @@
 package analyse
 
 import (
-	"sort"
+	"slices"
 	"sync"
 
-	"github.com/wangbin/jiebago/dictionary"
+	"github.com/lengzhao/jiebago/dictionary"
 )
 
 // Idf represents a thread-safe dictionary for all words with their
@@ -21,7 +21,12 @@ func (i *Idf) AddToken(token dictionary.Token) {
 	i.Lock()
 	i.freqMap[token.Text()] = token.Frequency()
 	i.freqs = append(i.freqs, token.Frequency())
-	sort.Float64s(i.freqs)
+	i.Unlock()
+
+	// Sort after unlocking to avoid holding lock during expensive operation
+	slices.Sort(i.freqs)
+
+	i.Lock()
 	i.median = i.freqs[len(i.freqs)/2]
 	i.Unlock()
 }
@@ -33,7 +38,12 @@ func (i *Idf) Load(ch <-chan dictionary.Token) {
 		i.freqMap[token.Text()] = token.Frequency()
 		i.freqs = append(i.freqs, token.Frequency())
 	}
-	sort.Float64s(i.freqs)
+	i.Unlock()
+
+	// Sort after unlocking to avoid holding lock during expensive operation
+	slices.Sort(i.freqs)
+
+	i.Lock()
 	i.median = i.freqs[len(i.freqs)/2]
 	i.Unlock()
 }

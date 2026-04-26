@@ -2,11 +2,12 @@
 package analyse
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
-	"github.com/wangbin/jiebago"
+	"github.com/lengzhao/jiebago"
 )
 
 // Segment represents a word with weight.
@@ -27,22 +28,6 @@ func (s Segment) Weight() float64 {
 
 // Segments represents a slice of Segment.
 type Segments []Segment
-
-func (ss Segments) Len() int {
-	return len(ss)
-}
-
-func (ss Segments) Less(i, j int) bool {
-	if ss[i].weight == ss[j].weight {
-		return ss[i].text < ss[j].text
-	}
-
-	return ss[i].weight < ss[j].weight
-}
-
-func (ss Segments) Swap(i, j int) {
-	ss[i], ss[j] = ss[j], ss[i]
-}
 
 // TagExtracter is used to extract tags from sentence.
 type TagExtracter struct {
@@ -72,7 +57,7 @@ func (t *TagExtracter) LoadStopWords(fileName string) error {
 
 // ExtractTags extracts the topK key words from sentence.
 func (t *TagExtracter) ExtractTags(sentence string, topK int) (tags Segments) {
-	freqMap := make(map[string]float64)
+	freqMap := make(map[string]float64, 64)
 
 	for w := range t.seg.Cut(sentence, true) {
 		w = strings.TrimSpace(w)
@@ -82,12 +67,9 @@ func (t *TagExtracter) ExtractTags(sentence string, topK int) (tags Segments) {
 		if t.stopWord.IsStopWord(w) {
 			continue
 		}
-		if f, ok := freqMap[w]; ok {
-			freqMap[w] = f + 1.0
-		} else {
-			freqMap[w] = 1.0
-		}
+		freqMap[w] += 1.0
 	}
+
 	total := 0.0
 	for _, freq := range freqMap {
 		total += freq
@@ -95,21 +77,27 @@ func (t *TagExtracter) ExtractTags(sentence string, topK int) (tags Segments) {
 	for k, v := range freqMap {
 		freqMap[k] = v / total
 	}
-	ws := make(Segments, 0)
-	var s Segment
+
+	// Pre-allocate with capacity
+	ws := make(Segments, 0, len(freqMap))
 	for k, v := range freqMap {
-		if freq, ok := t.idf.Frequency(k); ok {
-			s = Segment{text: k, weight: freq * v}
-		} else {
-			s = Segment{text: k, weight: t.idf.median * v}
+		freq, ok := t.idf.Frequency(k)
+		if !ok {
+			freq = t.idf.median
 		}
-		ws = append(ws, s)
+		ws = append(ws, Segment{text: k, weight: freq * v})
 	}
-	sort.Sort(sort.Reverse(ws))
+
+	// Use slices.SortFunc instead of sort.Interface
+	slices.SortFunc(ws, func(a, b Segment) int {
+		if a.weight == b.weight {
+			return cmp.Compare(b.text, a.text) // Reverse text order
+		}
+		return cmp.Compare(b.weight, a.weight) // Descending weight
+	})
+
 	if len(ws) > topK {
-		tags = ws[:topK]
-	} else {
-		tags = ws
+		return ws[:topK]
 	}
-	return tags
+	return ws
 }

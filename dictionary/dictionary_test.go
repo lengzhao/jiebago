@@ -35,7 +35,7 @@ func TestLoadDictionary(t *testing.T) {
 	d := &Dict{freqMap: make(map[string]float64), posMap: make(map[string]string)}
 	err := LoadDictionary(d, "../userdict.txt")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	if len(d.freqMap) != 7 {
 		t.Fatalf("Failed to load userdict.txt, got %d tokens with frequency, expected 7",

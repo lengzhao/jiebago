@@ -11,7 +11,7 @@ var (
 )
 
 func cutHan(sentence string) chan string {
-	result := make(chan string)
+	result := make(chan string, 32)
 	go func() {
 		runes := []rune(sentence)
 		_, posList := viterbi(runes, []byte{'B', 'M', 'E', 'S'})
@@ -40,7 +40,7 @@ func cutHan(sentence string) chan string {
 // Cut cuts sentence into words using Hidden Markov Model with Viterbi
 // algorithm. It is used by Jiebago for unknonw words.
 func Cut(sentence string) chan string {
-	result := make(chan string)
+	result := make(chan string, 32)
 	s := sentence
 	var hans string
 	var hanLoc []int

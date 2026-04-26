@@ -5,7 +5,7 @@ import (
 	"math"
 	"regexp"
 
-	"github.com/wangbin/jiebago/util"
+	"github.com/lengzhao/jiebago/util"
 )
 
 var (
@@ -82,7 +82,7 @@ func (seg *Segmenter) cutDetailInternal(sentence string) <-chan Segment {
 }
 
 func (seg *Segmenter) cutDetail(sentence string) <-chan Segment {
-	result := make(chan Segment)
+	result := make(chan Segment, 32)
 	go func() {
 		for _, blk := range util.RegexpSplit(reHanDetail, sentence, -1) {
 			if reHanDetail.MatchString(blk) {
@@ -173,7 +173,7 @@ func (seg *Segmenter) calc(runes []rune) map[int]route {
 type cutFunc func(sentence string) <-chan Segment
 
 func (seg *Segmenter) cutDAG(sentence string) <-chan Segment {
-	result := make(chan Segment)
+	result := make(chan Segment, 32)
 
 	go func() {
 		runes := []rune(sentence)
@@ -257,7 +257,7 @@ func (seg *Segmenter) cutDAG(sentence string) <-chan Segment {
 }
 
 func (seg *Segmenter) cutDAGNoHMM(sentence string) <-chan Segment {
-	result := make(chan Segment)
+	result := make(chan Segment, 32)
 
 	go func() {
 		runes := []rune(sentence)
@@ -298,7 +298,7 @@ func (seg *Segmenter) cutDAGNoHMM(sentence string) <-chan Segment {
 // Cut cuts a sentence into words.
 // Parameter hmm controls whether to use the Hidden Markov Model.
 func (seg *Segmenter) Cut(sentence string, hmm bool) <-chan Segment {
-	result := make(chan Segment)
+	result := make(chan Segment, 32)
 	var cut cutFunc
 	if hmm {
 		cut = seg.cutDAG
