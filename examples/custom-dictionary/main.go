@@ -10,8 +10,8 @@ import (
 func main() {
 	var seg jiebago.Segmenter
 
-	// Load main dictionary
-	if err := seg.LoadDictionary("../../dict.txt"); err != nil {
+	// Load main dictionary (or use jiebago.Default for out-of-the-box experience)
+	if err := seg.LoadDictionary("../../embed/dict.txt"); err != nil {
 		panic(err)
 	}
 

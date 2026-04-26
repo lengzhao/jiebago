@@ -24,7 +24,7 @@ var (
 
 func TestTextRank(t *testing.T) {
 	var tr TextRanker
-	tr.LoadDictionary("../dict.txt")
+	tr.LoadDictionary("../embed/dict.txt")
 	results := tr.TextRank(sentence, 10)
 	for index, tw := range results {
 		if tw.text != tagRanks[index].text || math.Abs(tw.weight-tagRanks[index].weight) > 1e-6 {

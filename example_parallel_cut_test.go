@@ -41,7 +41,7 @@ func Example_parallelCut() {
 	runtime.GOMAXPROCS(numThreads)
 
 	// Load dictionary
-	segmenter.LoadDictionary("dict.txt")
+	segmenter.LoadDictionary("embed/dict.txt")
 
 	// open file for segmentation
 	file, err := os.Open("README.md")

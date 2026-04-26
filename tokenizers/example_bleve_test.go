@@ -19,7 +19,7 @@ func Skip_BleveSearchExample(t *testing.T) {
 
 	err := indexMapping.AddCustomTokenizer("jieba",
 		map[string]interface{}{
-			"file": "../dict.txt",
+			"file": "../embed/dict.txt",
 			"type": "jieba",
 		})
 	if err != nil {

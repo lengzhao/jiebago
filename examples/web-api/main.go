@@ -12,7 +12,7 @@ import (
 var seg jiebago.Segmenter
 
 func init() {
-	if err := seg.LoadDictionary("../../dict.txt"); err != nil {
+	if err := seg.LoadDictionary("../../embed/dict.txt"); err != nil {
 		panic(err)
 	}
 }

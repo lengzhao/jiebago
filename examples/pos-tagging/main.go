@@ -11,7 +11,7 @@ func main() {
 	var seg posseg.Segmenter
 
 	// Load dictionary
-	if err := seg.LoadDictionary("../../dict.txt"); err != nil {
+	if err := seg.LoadDictionary("../../embed/dict.txt"); err != nil {
 		panic(err)
 	}
 

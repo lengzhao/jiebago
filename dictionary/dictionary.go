@@ -4,6 +4,7 @@ package dictionary
 
 import (
 	"bufio"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,13 +18,13 @@ type DictLoader interface {
 	AddToken(Token)
 }
 
-func loadDictionary(file *os.File) (<-chan Token, <-chan error) {
+func loadDictionaryFromReader(reader io.Reader) (<-chan Token, <-chan error) {
 	tokenCh, errCh := make(chan Token), make(chan error)
 
 	go func() {
 		defer close(tokenCh)
 		defer close(errCh)
-		scanner := bufio.NewScanner(file)
+		scanner := bufio.NewScanner(reader)
 		var token Token
 		var line string
 		var fields []string
@@ -50,7 +51,14 @@ func loadDictionary(file *os.File) (<-chan Token, <-chan error) {
 		}
 	}()
 	return tokenCh, errCh
+}
 
+// LoadDictionaryFromReader loads dictionary from an io.Reader.
+// This is useful for loading embedded dictionary data.
+func LoadDictionaryFromReader(dl DictLoader, reader io.Reader) error {
+	tokenCh, errCh := loadDictionaryFromReader(reader)
+	dl.Load(tokenCh)
+	return <-errCh
 }
 
 // LoadDictionary reads the given file and passes all tokens to a DictLoader.
@@ -64,11 +72,8 @@ func LoadDictionary(dl DictLoader, fileName string) error {
 		return err
 	}
 	defer dictFile.Close()
-	tokenCh, errCh := loadDictionary(dictFile)
-	dl.Load(tokenCh)
 
-	return <-errCh
-
+	return LoadDictionaryFromReader(dl, dictFile)
 }
 
 func dictPath(dictFileName string) (string, error) {

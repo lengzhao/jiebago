@@ -12,7 +12,7 @@ func main() {
 	fmt.Println("=== TF-IDF Keywords Extraction ===")
 
 	var tagger analyse.TagExtracter
-	if err := tagger.LoadDictionary("../../dict.txt"); err != nil {
+	if err := tagger.LoadDictionary("../../embed/dict.txt"); err != nil {
 		panic(err)
 	}
 	if err := tagger.LoadIdf("idf.txt"); err != nil {
@@ -33,7 +33,7 @@ func main() {
 	fmt.Println("\n\n=== TextRank Keywords Extraction ===")
 
 	var ranker analyse.TextRanker
-	if err := ranker.LoadDictionary("../../dict.txt"); err != nil {
+	if err := ranker.LoadDictionary("../../embed/dict.txt"); err != nil {
 		panic(err)
 	}
 

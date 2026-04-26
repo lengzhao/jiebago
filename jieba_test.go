@@ -616,7 +616,7 @@ var (
 )
 
 func init() {
-	seg.LoadDictionary("dict.txt")
+	seg.LoadDictionary("embed/dict.txt")
 }
 
 func chanToArray(ch <-chan string) []string {
@@ -736,7 +736,7 @@ func TestLoadDictionary(t *testing.T) {
 			}
 		}
 	}
-	seg.LoadDictionary("dict.txt")
+	seg.LoadDictionary("embed/dict.txt")
 }
 
 func TestLoadUserDictionary(t *testing.T) {
@@ -779,7 +779,7 @@ func TestLoadUserDictionary(t *testing.T) {
 			t.Fatal(word)
 		}
 	}
-	seg.LoadDictionary("dict.txt")
+	seg.LoadDictionary("embed/dict.txt")
 }
 
 func BenchmarkCutNoHMM(b *testing.B) {

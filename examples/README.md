@@ -15,17 +15,21 @@ go run main.go
 
 | Example | Description | Key Features |
 |---------|-------------|--------------|
+| `quick-start/` | **Quick start with default segmenter** | 开箱即用, Default segmenter |
 | `basic/` | Fundamental segmentation modes | 精确模式, 全模式, 搜索引擎模式, HMM新词识别 |
 | `web-api/` | HTTP API for text segmentation | REST API, JSON request/response |
 | `batch-processing/` | Parallel processing of large datasets | goroutines, channels, worker pool |
 | `keywords-extraction/` | TF-IDF and TextRank keyword extraction | analyse package |
 | `custom-dictionary/` | Custom words and user dictionaries | AddWord, LoadUserDictionary, SuggestFrequency |
+| `benchmark/` | Performance benchmark | Performance testing, comparison |
 
 ## Directory Structure
 
 ```
 examples/
 ├── README.md
+├── quick-start/
+│   └── main.go          # Quick start with default segmenter
 ├── basic/
 │   └── main.go          # Basic usage demo
 ├── web-api/
@@ -34,15 +38,18 @@ examples/
 │   └── main.go          # Parallel batch processing
 ├── keywords-extraction/
 │   └── main.go          # TF-IDF and TextRank
-└── custom-dictionary/
-    └── main.go          # Custom dictionary management
+├── custom-dictionary/
+│   └── main.go          # Custom dictionary management
+└── benchmark/
+    └── main.go          # Performance benchmark
 ```
 
 ## Prerequisites
 
 - Go 1.25 or later
-- Dictionary file `dict.txt` in project root
-- For keywords extraction: `idf.txt` in examples folder
+- 使用默认分词器 `jiebago.Default` 无需额外字典文件（开箱即用）
+- 自定义分词器需要字典文件：`embed/dict.txt`
+- 关键词提取需要 IDF 字典文件：`idf.txt`（需自行提供）
 
 ## Example Output
 

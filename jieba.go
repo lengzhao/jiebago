@@ -5,8 +5,10 @@ import (
 	"math"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/lengzhao/jiebago/dictionary"
+	"github.com/lengzhao/jiebago/embed"
 	"github.com/lengzhao/jiebago/finalseg"
 	"github.com/lengzhao/jiebago/util"
 )
@@ -18,6 +20,111 @@ var (
 	reHanDefault  = regexp.MustCompile(`([\p{Han}+[:alnum:]+#&\._]+)`)
 	reSkipDefault = regexp.MustCompile(`(\r\n|\s)`)
 )
+
+// Default is the default Segmenter with embedded dictionary.
+// It is lazily initialized on first use. Safe for concurrent use.
+var Default = &defaultSegmenter{}
+
+type defaultSegmenter struct {
+	seg   Segmenter
+	once  sync.Once
+	err   error
+}
+
+func (d *defaultSegmenter) init() {
+	d.once.Do(func() {
+		d.err = d.seg.LoadDictionaryFromBytes(embed.DictData)
+	})
+}
+
+// Cut cuts a sentence into words using accurate mode.
+// It uses the embedded default dictionary.
+func (d *defaultSegmenter) Cut(sentence string, hmm bool) <-chan string {
+	d.init()
+	if d.err != nil {
+		ch := make(chan string, 1)
+		ch <- sentence
+		close(ch)
+		return ch
+	}
+	return d.seg.Cut(sentence, hmm)
+}
+
+// CutAll cuts a sentence into words using full mode.
+// It uses the embedded default dictionary.
+func (d *defaultSegmenter) CutAll(sentence string) <-chan string {
+	d.init()
+	if d.err != nil {
+		ch := make(chan string, 1)
+		ch <- sentence
+		close(ch)
+		return ch
+	}
+	return d.seg.CutAll(sentence)
+}
+
+// CutForSearch cuts sentence into words using search engine mode.
+// It uses the embedded default dictionary.
+func (d *defaultSegmenter) CutForSearch(sentence string, hmm bool) <-chan string {
+	d.init()
+	if d.err != nil {
+		ch := make(chan string, 1)
+		ch <- sentence
+		close(ch)
+		return ch
+	}
+	return d.seg.CutForSearch(sentence, hmm)
+}
+
+// Frequency returns a word's frequency and existence.
+// It uses the embedded default dictionary.
+func (d *defaultSegmenter) Frequency(word string) (float64, bool) {
+	d.init()
+	if d.err != nil {
+		return 0, false
+	}
+	return d.seg.Frequency(word)
+}
+
+// AddWord adds a new word with frequency to dictionary.
+// It uses the embedded default dictionary.
+func (d *defaultSegmenter) AddWord(word string, frequency float64) {
+	d.init()
+	if d.err != nil {
+		return
+	}
+	d.seg.AddWord(word, frequency)
+}
+
+// DeleteWord removes a word from dictionary.
+// It uses the embedded default dictionary.
+func (d *defaultSegmenter) DeleteWord(word string) {
+	d.init()
+	if d.err != nil {
+		return
+	}
+	d.seg.DeleteWord(word)
+}
+
+// SuggestFrequency returns a suggested frequency of a word.
+// It uses the embedded default dictionary.
+func (d *defaultSegmenter) SuggestFrequency(words ...string) float64 {
+	d.init()
+	if d.err != nil {
+		return 1.0
+	}
+	return d.seg.SuggestFrequency(words...)
+}
+
+// LoadUserDictionary loads a user specified dictionary.
+// It will not clear the embedded dictionary, instead it will override exist entries.
+func (d *defaultSegmenter) LoadUserDictionary(fileName string) error {
+	d.init()
+	if d.err != nil {
+		return d.err
+	}
+	return d.seg.LoadUserDictionary(fileName)
+}
 
 // Segmenter is a Chinese words segmentation struct.
 type Segmenter struct {
@@ -96,6 +203,13 @@ func (seg *Segmenter) SuggestFrequency(words ...string) float64 {
 func (seg *Segmenter) LoadDictionary(fileName string) error {
 	seg.dict = &Dictionary{freqMap: make(map[string]float64)}
 	return seg.dict.loadDictionary(fileName)
+}
+
+// LoadDictionaryFromBytes loads dictionary from byte slice.
+// This is useful for loading embedded dictionary data.
+func (seg *Segmenter) LoadDictionaryFromBytes(data []byte) error {
+	seg.dict = &Dictionary{freqMap: make(map[string]float64)}
+	return seg.dict.loadDictionaryFromBytes(data)
 }
 
 // LoadUserDictionary loads a user specified dictionary, it must be called

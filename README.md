@@ -12,6 +12,7 @@
 
 ## 特性
 
+- **开箱即用**：内置字典数据，无需额外文件
 - 支持多种分词模式：全模式、精确模式、搜索引擎模式
 - 支持词性标注 (POS tagging)
 - 支持关键词提取 (TF-IDF, TextRank)
@@ -25,54 +26,111 @@
 go get github.com/lengzhao/jiebago
 ```
 
-## 使用
+## 快速开始（开箱即用）
+
+使用默认分词器，无需加载字典文件：
 
 ```go
 package main
 
 import (
-        "fmt"
-
-        "github.com/lengzhao/jiebago"
+    "fmt"
+    "github.com/lengzhao/jiebago"
 )
 
-var seg jiebago.Segmenter
+func main() {
+    sentence := "我来到北京清华大学"
 
-func init() {
-        seg.LoadDictionary("dict.txt")
-}
-
-func print(ch <-chan string) {
-        for word := range ch {
-                fmt.Printf(" %s /", word)
-        }
-        fmt.Println()
-}
-
-func Example() {
-        fmt.Print("【全模式】：")
-        print(seg.CutAll("我来到北京清华大学"))
-
-        fmt.Print("【精确模式】：")
-        print(seg.Cut("我来到北京清华大学", false))
-
-        fmt.Print("【新词识别】：")
-        print(seg.Cut("他来到了网易杭研大厦", true))
-
-        fmt.Print("【搜索引擎模式】：")
-        print(seg.CutForSearch("小明硕士毕业于中国科学院计算所，后在日本京都大学深造", true))
+    // 精确模式
+    for word := range jiebago.Default.Cut(sentence, false) {
+        fmt.Printf("%s / ", word)
+    }
+    // 输出: 我 / 来到 / 北京 / 清华大学 /
 }
 ```
-输出结果：
 
+## 使用指南
+
+### 默认分词器 vs 自定义分词器
+
+| 方式 | 适用场景 | 示例 |
+|------|----------|------|
+| **默认分词器** | 快速开始、简单使用 | `jiebago.Default.Cut(text, true)` |
+| **自定义分词器** | 需要自定义字典、精细控制 | `seg.LoadDictionary("dict.txt")` |
+
+### 默认分词器（开箱即用）
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/lengzhao/jiebago"
+)
+
+func main() {
+    sentence := "我来到北京清华大学"
+
+    // 【全模式】获取所有可能的分词结果
+    fmt.Println("【全模式】")
+    for word := range jiebago.Default.CutAll(sentence) {
+        fmt.Printf("%s / ", word)
+    }
+
+    // 【精确模式】最准确的分词结果（默认）
+    fmt.Println("\n【精确模式】")
+    for word := range jiebago.Default.Cut(sentence, false) {
+        fmt.Printf("%s / ", word)
+    }
+
+    // 【新词识别】使用 HMM 模型识别未登录词
+    fmt.Println("\n【新词识别】")
+    for word := range jiebago.Default.Cut("他来到了网易杭研大厦", true) {
+        fmt.Printf("%s / ", word)
+    }
+
+    // 【搜索引擎模式】适合建立搜索引擎索引
+    fmt.Println("\n【搜索引擎模式】")
+    for word := range jiebago.Default.CutForSearch("小明硕士毕业于中国科学院计算所", true) {
+        fmt.Printf("%s / ", word)
+    }
+
+    // 添加自定义词
+    jiebago.Default.AddWord("超敏C反应蛋白", 1000.0)
+
+    // 加载用户词典（不覆盖内置词典）
+    jiebago.Default.LoadUserDictionary("userdict.txt")
+}
 ```
-【全模式】： 我 / 来到 / 北京 / 清华 / 清华大学 / 华大 / 大学 /
 
-【精确模式】： 我 / 来到 / 北京 / 清华大学 /
+### 自定义分词器（传统方式）
 
-【新词识别】： 他 / 来到 / 了 / 网易 / 杭研 / 大厦 /
+如果需要使用自定义字典，可以创建 Segmenter 实例：
 
-【搜索引擎模式】： 小明 / 硕士 / 毕业 / 于 / 中国 / 科学 / 学院 / 科学院 / 中国科学院 / 计算 / 计算所 / ， / 后 / 在 / 日本 / 京都 / 大学 / 日本京都大学 / 深造 /
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/lengzhao/jiebago"
+)
+
+func main() {
+    var seg jiebago.Segmenter
+
+    // 从文件加载字典
+    if err := seg.LoadDictionary("dict.txt"); err != nil {
+        panic(err)
+    }
+
+    // 或者从字节加载（适合嵌入字典）
+    // seg.LoadDictionaryFromBytes(dictData)
+
+    sentence := "我来到北京清华大学"
+    for word := range seg.Cut(sentence, false) {
+        fmt.Printf("%s / ", word)
+    }
+}
 ```
 
 ## 使用指南：如何选择分词模式
@@ -147,7 +205,7 @@ segments := seg.Cut("他来到了网易杭研大厦", true)
 import "github.com/lengzhao/jiebago/posseg"
 
 var seg posseg.Segmenter
-seg.LoadDictionary("dict.txt")
+seg.LoadDictionary("embed/dict.txt")
 
 for segment := range seg.Cut("我爱北京天安门", true) {
     fmt.Printf("%s %s\n", segment.Text(), segment.Pos())
@@ -160,8 +218,8 @@ for segment := range seg.Cut("我爱北京天安门", true) {
 import "github.com/lengzhao/jiebago/analyse"
 
 var tagger analyse.TagExtracter
-tagger.LoadDictionary("dict.txt")
-tagger.LoadIdf("idf.txt")
+tagger.LoadDictionary("embed/dict.txt")
+tagger.LoadIdf("idf.txt")  // 需要提供 IDF 字典文件
 
 tags := tagger.ExtractTags(sentence, 10)
 ```
@@ -170,7 +228,7 @@ tags := tagger.ExtractTags(sentence, 10)
 
 ```go
 var ranker analyse.TextRanker
-ranker.LoadDictionary("dict.txt")
+ranker.LoadDictionary("embed/dict.txt")
 
 result := ranker.TextRank(sentence, 10)
 ```
@@ -195,18 +253,31 @@ for line := range lines {
 
 | 示例 | 说明 |
 |------|------|
+| `examples/quick-start/` | **快速开始（推荐）** - 开箱即用演示 |
 | `examples/basic/` | 四种分词模式完整演示 |
 | `examples/web-api/` | REST API 服务 |
 | `examples/batch-processing/` | 并行批量处理 |
 | `examples/keywords-extraction/` | TF-IDF / TextRank 关键词提取 |
 | `examples/pos-tagging/` | 词性标注 |
 | `examples/custom-dictionary/` | 自定义词典管理 |
+| `examples/benchmark/` | 性能测试和对比 |
 
 ## 分词速度
 
+在 Apple M4 (ARM64) 上测试：
+
+| 模式 | 速度 | 单次耗时 | 内存分配 |
+|------|------|---------|---------|
+| 全模式 (CutAll) | ~78,000 次/秒 | 12.7 µs/op | 8.2 KB/op |
+| 精确模式 (Cut) | ~63,000 次/秒 | 15.8 µs/op | 11.1 KB/op |
+| 新词识别 (Cut+HMM) | ~47,000 次/秒 | 21.1 µs/op | 14.8 KB/op |
+| 搜索引擎 (CutForSearch) | ~45,000 次/秒 | 22.0 µs/op | 14.2 KB/op |
+
+> 详细性能报告见 [PERFORMANCE.md](PERFORMANCE.md)
+
+历史参考数据（AMD Phenom II X6 1055T @ 2.8GHz）：
  - 2MB / Second in Full Mode
  - 700KB / Second in Default Mode
- - Test Env: AMD Phenom(tm) II X6 1055T CPU @ 2.8GHz; 《金庸全集》 
 
 ## 许可证
 

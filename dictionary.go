@@ -1,6 +1,7 @@
 package jiebago
 
 import (
+	"bytes"
 	"math"
 	"sync"
 
@@ -59,4 +60,8 @@ func (d *Dictionary) Frequency(key string) (float64, bool) {
 
 func (d *Dictionary) loadDictionary(fileName string) error {
 	return dictionary.LoadDictionary(d, fileName)
+}
+
+func (d *Dictionary) loadDictionaryFromBytes(data []byte) error {
+	return dictionary.LoadDictionaryFromReader(d, bytes.NewReader(data))
 }
